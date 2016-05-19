@@ -16,17 +16,28 @@
 --
 -- As an example, a functional system tray widget looks something like:
 --
--- > import Graphics.UI.Gtk
+-- > import GI.Gdk.Objects.Display
+-- > import GI.Gtk
 -- > import Graphics.UI.Gtk.Misc.TrayManager
+-- >
 -- > systrayNew = do
--- >   box <- hBoxNew False 5
--- >   trayManager <- rayManagerNew
--- >   Just screen <- screenGetDefault
--- >   trayManagerManageScreen trayManager screen
--- >   on trayManager trayIconAdded $ \w -> do
--- >     widgetShowAll w
--- >     boxPackStart box w PackNatural 0
---
+-- >     box <- boxNew OrientationHorizontal 5
+-- >
+-- >     trayManager <- trayManagerNew
+-- >     Just disp <- displayGetDefault
+-- >     screen <- displayGetScreen disp 0
+-- >
+-- >     trayManagerManageScreen trayManager screen
+-- >
+-- >     onTrayIconAdded trayManager $ \w -> do
+-- >         widgetShowAll w
+-- >         boxPackStart box w False False 0
+-- >
+-- >     widgetSetSizeRequest box (-1) 25  -- bar height
+-- >
+-- >     widgetShowAll box
+-- >     toWidget box
+
 -- Note that the widgets made available in the event handlers are not
 -- shown by default; you need to explicitly show them if you want that
 -- (and you probably do).
