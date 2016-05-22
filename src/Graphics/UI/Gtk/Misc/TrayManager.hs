@@ -42,27 +42,40 @@
 -- shown by default; you need to explicitly show them if you want that
 -- (and you probably do).
 module Graphics.UI.Gtk.Misc.TrayManager (
-  -- * Types
-  TrayManager,
-  TrayManagerK,
-  toTrayManager,
-  noTrayManager,
+    -- * Types
+    TrayManager,
+    TrayManagerK,
+    toTrayManager,
+    noTrayManager,
 
-  TrayManagerChild,
+    TrayManagerChild,
 
-  -- * Functions
-  trayManagerCheckRunning,
-  trayManagerNew,
-  trayManagerManageScreen,
-  trayManagerGetChildTitle,
+    -- * Functions
+    trayManagerCheckRunning,
+    trayManagerNew,
+    trayManagerManageScreen,
+    trayManagerGetChildTitle,
 
-  -- * Signals
-  onTrayIconAdded,
-  -- TODO
-  -- onTrayIconRemoved,
-  -- onTrayMessageSent,
-  -- onTrayMessageCanceled,
-  -- onTrayLostSelection
+    -- * Signals
+    TrayIconAddedCallback,
+    TrayIconAddedCallbackC,
+    TrayIconAddedSignalInfo,
+    afterTrayIconAdded,
+    trayIconAddedCallbackWrapper,
+    trayIconAddedClosure,
+    mkTrayIconAddedCallback,
+    noTrayIconAddedCallback,
+    onTrayIconAdded,
+
+    TrayIconRemovedCallback,
+    TrayIconRemovedCallbackC,
+    TrayIconRemovedSignalInfo,
+    afterTrayIconRemoved,
+    trayIconRemovedCallbackWrapper,
+    trayIconRemovedClosure,
+    mkTrayIconRemovedCallback,
+    noTrayIconRemovedCallback,
+    onTrayIconRemoved,
   ) where
 
 import Prelude ()
@@ -158,7 +171,15 @@ trayManagerGetChildTitle trayManager child = do
 -- delivered even for systray icons that already exist when the tray
 -- manager is created.
 
+data TrayIconAddedSignalInfo
+instance SignalInfo TrayIconAddedSignalInfo where
+    type HaskellCallbackType TrayIconAddedSignalInfo = TrayIconAddedCallback
+    connectSignal _ = connectTrayIconAdded
+
 type TrayIconAddedCallback = Widget -> IO ()
+
+noTrayIconAddedCallback :: Maybe TrayIconAddedCallback
+noTrayIconAddedCallback = Nothing
 
 type TrayIconAddedCallbackC =
     Ptr () ->
@@ -190,30 +211,55 @@ afterTrayIconAdded obj cb = connectTrayIconAdded obj cb SignalConnectAfter
 
 connectTrayIconAdded :: (GObject a, MonadIO m) =>
                          a -> TrayIconAddedCallback -> SignalConnectMode -> m SignalHandlerId
-connectTrayIconAdded obj cb after = liftIO $ do
+connectTrayIconAdded obj cb after_ = liftIO $ do
     cb' <- mkTrayIconAddedCallback (trayIconAddedCallbackWrapper cb)
-    connectSignalFunPtr obj "tray_icon_added" cb' after
+    connectSignalFunPtr obj "tray_icon_added" cb' after_
 
-{-
 -- | This signal is emitted when a tray icon is removed by its parent
 -- application.  No action is really necessary here (the icon is
 -- removed without any intervention).  You could do something here if
 -- you wanted, though.
-trayIconRemoved :: (TrayManagerClass self) => Signal self (Widget -> IO ())
-trayIconRemoved = Signal (connect_OBJECT__NONE "tray_icon_removed")
 
--- | This signal is emitted when the application that displayed an
--- icon wants a semi-persistent notification displayed for its icon.
--- The standard doesn't seem to require that these be honored.
-trayMessageSent :: (TrayManagerClass self) => Signal self (Widget -> String -> Int64 -> Int64 -> IO ())
-trayMessageSent = Signal (connect_OBJECT_STRING_INT64_INT64__NONE "message_sent")
+data TrayIconRemovedSignalInfo
+instance SignalInfo TrayIconRemovedSignalInfo where
+    type HaskellCallbackType TrayIconRemovedSignalInfo = TrayIconRemovedCallback
+    connectSignal _ = connectTrayIconRemoved
 
--- | Similarly, the applciation can send this to cancel a previous
--- persistent message.
-trayMessageCanceled :: (TrayManagerClass self) => Signal self (Widget -> Int64 -> IO ())
-trayMessageCanceled = Signal (connect_OBJECT_INT64__NONE "message_canceled")
+type TrayIconRemovedCallback = Widget -> IO ()
 
--- | ??
-trayLostSelection :: (TrayManagerClass self) => Signal self (IO ())
-trayLostSelection = Signal (connect_NONE__NONE "lost_selection")
--}
+noTrayIconRemovedCallback :: Maybe TrayIconRemovedCallback
+noTrayIconRemovedCallback = Nothing
+
+type TrayIconRemovedCallbackC =
+    Ptr () ->
+    Ptr Widget ->
+    Ptr () ->
+    IO ()
+
+foreign import ccall "wrapper"
+    mkTrayIconRemovedCallback :: TrayIconRemovedCallbackC -> IO (FunPtr TrayIconRemovedCallbackC)
+
+trayIconRemovedClosure :: TrayIconRemovedCallback -> IO Closure
+trayIconRemovedClosure cb = newCClosure =<< mkTrayIconRemovedCallback wrapped
+    where wrapped = trayIconRemovedCallbackWrapper cb
+
+trayIconRemovedCallbackWrapper ::
+    TrayIconRemovedCallback ->
+    Ptr () ->
+    Ptr Widget ->
+    Ptr () ->
+    IO ()
+trayIconRemovedCallbackWrapper _cb _ object _ = do
+    object' <- (newObject Widget) object
+    _cb  object'
+
+onTrayIconRemoved :: (GObject a, MonadIO m) => a -> TrayIconRemovedCallback -> m SignalHandlerId
+onTrayIconRemoved obj cb = liftIO $ connectTrayIconRemoved obj cb SignalConnectBefore
+afterTrayIconRemoved :: (GObject a, MonadIO m) => a -> TrayIconRemovedCallback -> m SignalHandlerId
+afterTrayIconRemoved obj cb = connectTrayIconRemoved obj cb SignalConnectAfter
+
+connectTrayIconRemoved :: (GObject a, MonadIO m) =>
+                         a -> TrayIconRemovedCallback -> SignalConnectMode -> m SignalHandlerId
+connectTrayIconRemoved obj cb after_ = liftIO $ do
+    cb' <- mkTrayIconRemovedCallback (trayIconRemovedCallbackWrapper cb)
+    connectSignalFunPtr obj "tray_icon_added" cb' after_
